@@ -1,16 +1,11 @@
-# World Monitor
+# Global Intelligence Monitor
 
 **Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
 
-[![GitHub stars](https://img.shields.io/github/stars/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/network/members)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Last commit](https://img.shields.io/github/last-commit/koala73/worldmonitor)](https://github.com/koala73/worldmonitor/commits/main)
 
 <p align="center">
-  <a href="https://worldmonitor.app"><strong>Live Demo</strong></a> &nbsp;·&nbsp;
-  <a href="https://tech.worldmonitor.app"><strong>Tech Variant</strong></a> &nbsp;·&nbsp;
   <a href="./docs/DOCUMENTATION.md"><strong>Full Documentation</strong></a>
 </p>
 
@@ -675,23 +670,8 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## Author
+## License
 
-**Elie Habib** — [GitHub](https://github.com/koala73)
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
-
-<p align="center">
-  <a href="https://worldmonitor.app">worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://tech.worldmonitor.app">tech.worldmonitor.app</a>
-</p>
-
-
-## Star History
-
-<a href="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date&theme=dark" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date" />
- </picture>
-</a>
