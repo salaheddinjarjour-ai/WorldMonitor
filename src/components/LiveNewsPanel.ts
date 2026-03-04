@@ -58,13 +58,13 @@ type LiveChannel = YouTubeChannel | HlsChannel;
 // ─── Channel List ──────────────────────────────────────────────────────────────
 
 const LIVE_CHANNELS: LiveChannel[] = [
-  // Al Jazeera English – YouTube with live detection
+  // Al Jazeera Arabic
   {
     id: 'aljazeera',
     name: 'Al Jazeera',
     type: 'youtube',
-    handle: '@AlJazeeraEnglish',
-    fallbackVideoId: 'gCNeDWCI0vo',
+    handle: '@AlJazeeraChannel',
+    fallbackVideoId: 'SFkvbsE95P0',
   },
   // Al Jazeera Mubasher (Arabic live) – YouTube
   {
