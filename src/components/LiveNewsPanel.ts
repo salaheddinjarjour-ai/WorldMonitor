@@ -63,8 +63,8 @@ const LIVE_CHANNELS: LiveChannel[] = [
     id: 'aljazeera',
     name: 'Al Jazeera',
     type: 'youtube',
-    handle: '@AlJazeeraChannel',
-    fallbackVideoId: 'SFkvbsE95P0',
+    handle: '@aljazeera',
+    fallbackVideoId: 'bNyUyrR0PHo',
   },
   // Al Jazeera Mubasher (Arabic live) – YouTube
   {
@@ -74,13 +74,13 @@ const LIVE_CHANNELS: LiveChannel[] = [
     handle: '@aljazeeramubasher',
     fallbackVideoId: 'hvONmH0Yx74',
   },
-  // Al Mayadin – YouTube with IPTV fallback
+  // Al Mayadin – YouTube
   {
     id: 'almayadin',
     name: 'Al Mayadin',
     type: 'youtube',
-    handle: '@almayadeentv',
-    fallbackVideoId: '4BHNF8lv3uY',
+    handle: '@AlMayadeen',
+    fallbackVideoId: 'rI7pYaLknak',
   },
   // Al Manar – IPTV (restricted/unavailable on YouTube)
   {
@@ -97,7 +97,7 @@ const LIVE_CHANNELS: LiveChannel[] = [
     id: 'alaraby',
     name: 'Al Araby',
     type: 'youtube',
-    handle: '@AlArabyTV',
+    handle: '@AlArabyTv_News',
     fallbackVideoId: 'QT6n6xMPlv0',
   },
   // Al Jadeed – dynamic URL from elahmad.com (token-based), with iptv-org fallback
