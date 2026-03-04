@@ -161,6 +161,75 @@ function youtubeLivePlugin(): Plugin {
 }
 
 /**
+ * iptvStreamPlugin – scrapes elahmad.com to get fresh (token-based) HLS stream URLs.
+ * Cached for 25 min to stay under elahmad.com token expiry (~30 min).
+ */
+function iptvStreamPlugin(): Plugin {
+  const cache = new Map<string, { url: string; ts: number }>();
+  const CACHE_TTL = 25 * 60 * 1000; // 25 minutes
+
+  // Map channel id → elahmad.com page to scrape
+  const CHANNEL_PAGES: Record<string, string> = {
+    aljadeed: 'https://www.elahmad.com/tv/watchtv.php?id=aljadeed',
+  };
+
+  return {
+    name: 'iptv-stream',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/iptv-stream')) return next();
+
+        const url = new URL(req.url, 'http://localhost');
+        const channel = url.searchParams.get('channel') ?? '';
+        const pageUrl = CHANNEL_PAGES[channel];
+
+        if (!pageUrl) {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Unknown channel', channel }));
+          return;
+        }
+
+        // Serve from cache
+        const cached = cache.get(channel);
+        if (cached && Date.now() - cached.ts < CACHE_TTL) {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ streamUrl: cached.url, channel, cached: true }));
+          return;
+        }
+
+        try {
+          const html = await fetch(pageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              'Referer': 'https://www.elahmad.com/',
+            },
+            signal: AbortSignal.timeout(10000),
+          }).then(r => r.text());
+
+          // Extract m3u8 URL (elahmad embeds it as a plain string in the HTML/JS)
+          const m3u8Match = html.match(/https?:\/\/[^"'\s<>]+?\.m3u8[^"'\s<>]*/);
+          const streamUrl = m3u8Match?.[0] ?? null;
+
+          if (streamUrl) {
+            cache.set(channel, { url: streamUrl, ts: Date.now() });
+            console.log(`[IPTVStream] Resolved ${channel}: ${streamUrl.substring(0, 70)}...`);
+          }
+
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ streamUrl, channel }));
+        } catch (err) {
+          console.error(`[IPTVStream] Error for ${channel}:`, err);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ streamUrl: null, channel, error: 'scrape failed' }));
+        }
+      });
+    },
+  };
+}
+
+/**
  * vercelApiPlugin – dev-mode middleware that executes api/*.js Vercel Edge handlers.
  *
  * Vercel serverless functions use the Web API (Request / Response) and cannot be
@@ -271,7 +340,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  plugins: [htmlVariantPlugin(), youtubeLivePlugin(), vercelApiPlugin()],
+  plugins: [htmlVariantPlugin(), youtubeLivePlugin(), iptvStreamPlugin(), vercelApiPlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

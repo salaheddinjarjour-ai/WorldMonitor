@@ -48,8 +48,9 @@ interface YouTubeChannel extends BaseChannel {
 
 interface HlsChannel extends BaseChannel {
   type: 'hls';
-  streamUrl: string;             // Primary m3u8 stream URL
+  streamUrl: string;             // Primary m3u8 stream URL (or fallback)
   fallbackUrls?: string[];       // Additional fallback URLs to try
+  dynamicUrlEndpoint?: string;   // Optional: fetch fresh URL from this /api/ endpoint first
 }
 
 type LiveChannel = YouTubeChannel | HlsChannel;
@@ -99,11 +100,12 @@ const LIVE_CHANNELS: LiveChannel[] = [
     handle: '@AlArabyTV',
     fallbackVideoId: 'QT6n6xMPlv0',
   },
-  // Al Jadeed – IPTV (iptv-org Lebanon list)
+  // Al Jadeed – dynamic URL from elahmad.com (token-based), with iptv-org fallback
   {
     id: 'aljadeed',
     name: 'Al Jadeed',
     type: 'hls',
+    dynamicUrlEndpoint: '/api/iptv-stream?channel=aljadeed',
     streamUrl: 'http://185.9.2.18/chid_391/mono.m3u8',
     fallbackUrls: [
       'https://samaflix.com:12103/channel7/tracks-v2a1/mono.m3u8',
@@ -420,7 +422,17 @@ export class LiveNewsPanel extends Panel {
     this.content.appendChild(container);
     this.hlsVideo = video;
 
-    const urls = [ch.streamUrl, ...(ch.fallbackUrls ?? [])];
+    // Build URL list: try dynamic (fresh token) URL first, then static fallbacks
+    const urls: string[] = [];
+    if (ch.dynamicUrlEndpoint) {
+      try {
+        const resp = await fetch(ch.dynamicUrlEndpoint);
+        const data = await resp.json() as { streamUrl?: string };
+        if (data.streamUrl) urls.push(data.streamUrl);
+      } catch { /* dynamic fetch failed, proceed with static URLs */ }
+    }
+    urls.push(ch.streamUrl, ...(ch.fallbackUrls ?? []));
+
     const loaded = await this.tryHlsUrls(video, urls);
 
     if (!loaded) {
@@ -432,6 +444,7 @@ export class LiveNewsPanel extends Panel {
     this.setChannelButtonState(ch.id, 'ready');
     if (this.isPlaying) video.play().catch(() => {/* autoplay blocked */ });
   }
+
 
   private tryHlsUrls(video: HTMLVideoElement, urls: string[]): Promise<boolean> {
     return new Promise(resolve => {
