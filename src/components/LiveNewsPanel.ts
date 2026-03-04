@@ -55,7 +55,7 @@ const FULL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'cnbc', name: 'CNBC', handle: '@CNBC', fallbackVideoId: '9NyxcX3rhQs' },
   { id: 'france24', name: 'France24', handle: '@FRANCE24English', fallbackVideoId: 'Ap-UM1O9RBU' },
   { id: 'alarabiya', name: 'AlArabiya', handle: '@AlArabiya', fallbackVideoId: 'n7eQejkXbnM', useFallbackOnly: true },
-  { id: 'aljazeera', name: 'AlJazeera', handle: '@AlJazeeraEnglish', fallbackVideoId: 'gCNeDWCI0vo', useFallbackOnly: true },
+  { id: 'aljazeera', name: 'AlJazeera', handle: '@AlJazeeraArabic', fallbackVideoId: 'bNyUyrR0PHo', useFallbackOnly: true },
 ];
 
 // Tech variant: Tech & business channels
