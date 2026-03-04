@@ -2,6 +2,9 @@ import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'path';
 import pkg from './package.json';
 
+// Prevent Vite from attempting to open a browser (xdg-open) in headless environments
+process.env.BROWSER = 'none';
+
 const VARIANT_META: Record<string, {
   title: string;
   description: string;
