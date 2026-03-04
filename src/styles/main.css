@@ -982,6 +982,17 @@ body.animations-paused *::after {
   background: rgba(0, 0, 0, 0.3);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+  scroll-behavior: smooth;
+}
+
+.live-news-switcher::-webkit-scrollbar {
+  display: none;
+  /* Chrome/Safari */
 }
 
 .live-channel-btn {
@@ -996,6 +1007,7 @@ body.animations-paused *::after {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .live-channel-btn:hover {

@@ -84,6 +84,9 @@ function htmlVariantPlugin(): Plugin {
 }
 
 function youtubeLivePlugin(): Plugin {
+  const cache = new Map<string, { videoId: string | null; ts: number }>();
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   return {
     name: 'youtube-live',
     configureServer(server) {
@@ -102,17 +105,162 @@ function youtubeLivePlugin(): Plugin {
           return;
         }
 
-        try {
-          // Use YouTube's oEmbed to check if a video is valid/live
-          // For now, return null to use fallback - will implement proper detection later
+        // Serve from cache
+        const cached = cache.get(channel);
+        if (cached && Date.now() - cached.ts < CACHE_TTL) {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Cache-Control', 'public, max-age=300');
-          res.end(JSON.stringify({ videoId: null, channel }));
+          res.end(JSON.stringify({ videoId: cached.videoId, channel, cached: true }));
+          return;
+        }
+
+        try {
+          const handle = channel.startsWith('@') ? channel : `@${channel}`;
+          const liveUrl = `https://www.youtube.com/${handle}/live`;
+
+          const response = await fetch(liveUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(8000),
+          });
+
+          let videoId: string | null = null;
+
+          if (response.ok) {
+            const html = await response.text();
+            // Extract video ID - look for canonical URL first (most reliable)
+            const canonicalMatch = html.match(/\"canonical\":\"https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})\"/);
+            const videoIdMatch = html.match(/\"videoId\":\"([a-zA-Z0-9_-]{11})\"/);
+            const isLive = html.includes('"isLive":true') || html.includes('"isLiveNow":true');
+
+            if (canonicalMatch && isLive) {
+              videoId = canonicalMatch[1]!;
+            } else if (videoIdMatch && isLive) {
+              videoId = videoIdMatch[1]!;
+            }
+          }
+
+          cache.set(channel, { videoId, ts: Date.now() });
+
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'public, max-age=300');
+          res.end(JSON.stringify({ videoId, channel, isLive: !!videoId }));
         } catch (error) {
-          console.error(`[YouTube Live] Error:`, error);
+          console.error(`[YouTube Live] Error for ${channel}:`, error);
+          cache.set(channel, { videoId: null, ts: Date.now() });
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ videoId: null, channel, error: 'fetch failed' }));
+        }
+      });
+    },
+  };
+}
+
+/**
+ * vercelApiPlugin – dev-mode middleware that executes api/*.js Vercel Edge handlers.
+ *
+ * Vercel serverless functions use the Web API (Request / Response) and cannot be
+ * executed directly by the Vite dev server, which would otherwise serve them as
+ * plain static JS text (causing JSON parse errors in every panel).
+ *
+ * This plugin:
+ *  1. Intercepts any /api/* request not already handled by proxies or the YouTube plugin.
+ *  2. Derives the handler file path from the URL (e.g. /api/risk-scores → api/risk-scores.js).
+ *  3. Dynamically imports and calls the default-export handler with a proper Request object.
+ *  4. Streams the Web API Response back as a Node.js http response.
+ */
+function vercelApiPlugin(): Plugin {
+  return {
+    name: 'vercel-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url ?? '';
+
+        // Only handle /api/* routes
+        if (!url.startsWith('/api/')) return next();
+
+        // Already handled by other plugins / proxies – skip known proxy prefixes
+        const alreadyProxied = [
+          '/api/youtube/live',
+          '/api/yahoo', '/api/coingecko', '/api/polymarket',
+          '/api/earthquake', '/api/pizzint', '/api/fred-data',
+          '/api/cloudflare-radar', '/api/nga-msi', '/api/acled',
+          '/api/gdelt-geo', '/api/gdelt', '/api/faa',
+          '/api/opensky', '/api/adsb-exchange',
+        ];
+        if (alreadyProxied.some(p => url.startsWith(p))) return next();
+
+        // Derive the handler file: /api/foo/bar?x=1 → api/foo/bar.js
+        const withoutQuery = url.split('?')[0]!;
+        const segments = withoutQuery.replace(/^\/api\//, '').split('/');
+
+        // Try exact path first, then sub-directory index
+        const candidatePaths = [
+          resolve(__dirname, 'api', ...segments) + '.js',
+          resolve(__dirname, 'api', ...segments, 'index.js'),
+        ];
+
+        let handlerPath: string | null = null;
+        for (const p of candidatePaths) {
+          try {
+            const { existsSync } = await import('fs');
+            if (existsSync(p)) { handlerPath = p; break; }
+          } catch { /* ignore */ }
+        }
+
+        if (!handlerPath) return next(); // No matching handler — let Vite handle
+
+        try {
+          // Build a proper Web API Request for the handler
+          const fullUrl = `http://localhost${url}`;
+          let bodyBuf: ArrayBuffer | undefined;
+
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            const rawBuf = await new Promise<Buffer>((resolve, reject) => {
+              const chunks: Buffer[] = [];
+              req.on('data', (c: Buffer) => chunks.push(c));
+              req.on('end', () => resolve(Buffer.concat(chunks)));
+              req.on('error', reject);
+            });
+            bodyBuf = rawBuf.buffer.slice(rawBuf.byteOffset, rawBuf.byteOffset + rawBuf.byteLength) as ArrayBuffer;
+          }
+
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(req.headers)) {
+            if (v) headers.set(k, Array.isArray(v) ? v.join(', ') : v);
+          }
+
+          const request = new Request(fullUrl, {
+            method: req.method ?? 'GET',
+            headers,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            body: bodyBuf as any,
+          });
+
+          // Dynamic import with cache-bust so Vite picks up edits
+          const mod = await import(`${handlerPath}?t=${Date.now()}`);
+          const handler = mod.default ?? mod.handler;
+
+          if (typeof handler !== 'function') {
+            return next();
+          }
+
+          const response: Response = await handler(request);
+
+          res.statusCode = response.status;
+          response.headers.forEach((v, k) => res.setHeader(k, v));
+
+          const buf = Buffer.from(await response.arrayBuffer());
+          res.end(buf);
+        } catch (err) {
+          console.error(`[VercelAPI] Error executing ${req.url}:`, err);
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Failed to fetch', videoId: null }));
+          res.end(JSON.stringify({ error: 'Dev server handler error', detail: String(err) }));
         }
       });
     },
@@ -123,7 +271,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  plugins: [htmlVariantPlugin(), youtubeLivePlugin()],
+  plugins: [htmlVariantPlugin(), youtubeLivePlugin(), vercelApiPlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
