@@ -1,36 +1,39 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "api"
 
 [build.environment]
   NODE_VERSION = "20"
 
-# Redirect all routes to index.html for SPA
+# ── Edge Functions ──────────────────────────────────────────────────────────────
+# The api/*.js files use Vercel Edge Runtime format (Web API Request/Response),
+# which is identical to Netlify Edge Functions — so we route all /api/* requests
+# to a catch-all edge function that dynamically imports the right handler.
+
+[[edge_functions]]
+  path = "/api/*"
+  function = "api"
+
+# ── SPA Redirect (client-side routing) ─────────────────────────────────────────
+# Must come AFTER the edge function rule so /api/* is NOT caught here.
+# Netlify processes redirects after edge functions, so /api/* hits the edge
+# function first and never reaches this rule.
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Security headers
+# ── Security Headers ────────────────────────────────────────────────────────────
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
-# Cache static assets
+# Cache immutable hashed assets
 [[headers]]
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
-
-# Allow CORS for API routes
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type"
